@@ -1,6 +1,8 @@
 const NULL: usize = !0;
 
+use crate::redblack::RedBlack;
 use slab::Slab;
+use std::collections::VecDeque;
 
 #[derive(Debug)]
 struct Node<T> {
@@ -22,28 +24,16 @@ impl<T> Node<T> {
 }
 
 #[derive(Default)]
-pub struct RedBlack<T> {
+pub struct SlabRedBlack<T> {
     slab: Slab<Node<T>>,
     root: usize,
     nil_sentinel: usize,
 }
 
-impl<T> RedBlack<T>
+impl<T> SlabRedBlack<T>
 where
     T: std::default::Default + std::cmp::PartialOrd + std::fmt::Debug + Copy,
 {
-    pub fn new() -> RedBlack<T> {
-        let mut rb = RedBlack {
-            slab: Slab::new(),
-            root: NULL,
-            nil_sentinel: NULL,
-        };
-        let nil_sentinel = rb.slab.insert(Node::new(T::default(), NULL));
-        rb.nil_sentinel = nil_sentinel;
-        rb.root = nil_sentinel;
-        rb
-    }
-
     fn rotate(&mut self, x: usize, dir: usize) {
         let y = self.slab[x].children[dir ^ 1];
         self.slab[x].children[dir ^ 1] = self.slab[y].children[dir];
@@ -67,39 +57,6 @@ where
         self.slab[x].parent = y;
     }
 
-    pub fn insert(&mut self, key: T) {
-        let z = self.slab.insert(Node::new(key, self.nil_sentinel));
-
-        let mut y = self.nil_sentinel;
-        let mut x = self.root;
-
-        while x != self.nil_sentinel {
-            y = x;
-            let dir = if self.slab[z].key < self.slab[x].key {
-                0
-            } else {
-                1
-            };
-            x = self.slab[x].children[dir];
-        }
-
-        self.slab[z].parent = y;
-        if y == self.nil_sentinel {
-            self.root = z;
-        } else {
-            let dir = if self.slab[z].key < self.slab[y].key {
-                0
-            } else {
-                1
-            };
-            self.slab[y].children[dir] = z;
-        }
-
-        self.slab[z].red = true;
-
-        self.insert_fixup(z);
-    }
-
     fn tree_minimum(&mut self, mut x: usize) -> usize {
         let mut l = self.slab[x].children[0];
         while l != self.nil_sentinel {
@@ -119,55 +76,6 @@ where
             y = self.slab[y].parent;
         }
         y
-    }
-
-    pub fn delete(&mut self, key: T) -> Option<T> {
-        let z = match self.search_(key) {
-            Some(found_idx) => found_idx,
-            None => {
-                return None;
-            }
-        };
-
-        let y = if self.slab[z].children[0] == self.nil_sentinel
-            || self.slab[z].children[1] == self.nil_sentinel
-        {
-            z
-        } else {
-            self.tree_successor(z)
-        };
-
-        let dir = if self.slab[y].children[0] != self.nil_sentinel {
-            0
-        } else {
-            1
-        };
-        let x = self.slab[y].children[dir];
-
-        let yp = self.slab[y].parent;
-
-        self.slab[x].parent = yp;
-
-        if yp == self.nil_sentinel {
-            self.root = x;
-        } else {
-            let dir = if y == self.slab[yp].children[0] { 0 } else { 1 };
-            self.slab[yp].children[dir] = x;
-        }
-
-        if y != z {
-            self.slab[z].key = self.slab[y].key;
-        }
-        if !self.slab[y].red {
-            self.delete_fixup(x);
-        }
-
-        let mut ret: Option<T> = None;
-        if y != self.nil_sentinel {
-            ret = Some(self.slab[y].key);
-            self.slab.remove(y); // remove the spliced-out node from the slab
-        }
-        ret
     }
 
     fn insert_fixup(&mut self, mut z: usize) {
@@ -267,13 +175,6 @@ where
         None
     }
 
-    pub fn search(&mut self, key: T) -> Option<T> {
-        if let Some(found_idx) = self.search_(key) {
-            return Some(self.slab[found_idx].key);
-        }
-        None
-    }
-
     #[cfg(test)]
     fn is_valid(&self) {
         /*
@@ -283,7 +184,7 @@ where
          * - red property: children of a red node are black
          * - simple path from node to descendant leaf contains same number of black nodes
          */
-        fn verify_black_height<T>(rb: &RedBlack<T>, x: usize) -> i32 {
+        fn verify_black_height<T>(rb: &SlabRedBlack<T>, x: usize) -> i32 {
             if x == rb.nil_sentinel {
                 return 0;
             }
@@ -299,7 +200,7 @@ where
             left_height + add
         }
 
-        fn verify_children_color<T>(rb: &RedBlack<T>) -> bool {
+        fn verify_children_color<T>(rb: &SlabRedBlack<T>) -> bool {
             if rb.root == rb.nil_sentinel {
                 return true;
             }
@@ -340,13 +241,119 @@ where
     }
 }
 
+impl<T> RedBlack<T> for SlabRedBlack<T>
+where
+    T: std::default::Default + std::cmp::PartialOrd + std::fmt::Debug + Copy,
+{
+    fn new() -> SlabRedBlack<T> {
+        let mut rb = SlabRedBlack {
+            slab: Slab::new(),
+            root: NULL,
+            nil_sentinel: NULL,
+        };
+        let nil_sentinel = rb.slab.insert(Node::new(T::default(), NULL));
+        rb.nil_sentinel = nil_sentinel;
+        rb.root = nil_sentinel;
+        rb
+    }
+
+    fn search(&mut self, key: T) -> Option<T> {
+        if let Some(found_idx) = self.search_(key) {
+            return Some(self.slab[found_idx].key);
+        }
+        None
+    }
+
+    fn delete(&mut self, key: T) -> Option<T> {
+        let z = match self.search_(key) {
+            Some(found_idx) => found_idx,
+            None => {
+                return None;
+            }
+        };
+
+        let y = if self.slab[z].children[0] == self.nil_sentinel
+            || self.slab[z].children[1] == self.nil_sentinel
+        {
+            z
+        } else {
+            self.tree_successor(z)
+        };
+
+        let dir = if self.slab[y].children[0] != self.nil_sentinel {
+            0
+        } else {
+            1
+        };
+        let x = self.slab[y].children[dir];
+
+        let yp = self.slab[y].parent;
+
+        self.slab[x].parent = yp;
+
+        if yp == self.nil_sentinel {
+            self.root = x;
+        } else {
+            let dir = if y == self.slab[yp].children[0] { 0 } else { 1 };
+            self.slab[yp].children[dir] = x;
+        }
+
+        if y != z {
+            self.slab[z].key = self.slab[y].key;
+        }
+        if !self.slab[y].red {
+            self.delete_fixup(x);
+        }
+
+        let mut ret: Option<T> = None;
+        if y != self.nil_sentinel {
+            ret = Some(self.slab[y].key);
+            self.slab.remove(y); // remove the spliced-out node from the slab
+        }
+        ret
+    }
+
+    fn insert(&mut self, key: T) {
+        let z = self.slab.insert(Node::new(key, self.nil_sentinel));
+
+        let mut y = self.nil_sentinel;
+        let mut x = self.root;
+
+        while x != self.nil_sentinel {
+            y = x;
+            let dir = if self.slab[z].key < self.slab[x].key {
+                0
+            } else {
+                1
+            };
+            x = self.slab[x].children[dir];
+        }
+
+        self.slab[z].parent = y;
+        if y == self.nil_sentinel {
+            self.root = z;
+        } else {
+            let dir = if self.slab[z].key < self.slab[y].key {
+                0
+            } else {
+                1
+            };
+            self.slab[y].children[dir] = z;
+        }
+
+        self.slab[z].red = true;
+
+        self.insert_fixup(z);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_basic_insert() {
-        let mut rb: RedBlack<i32> = RedBlack::new();
+        let mut rb: SlabRedBlack<i32> = SlabRedBlack::new();
 
         rb.insert(5);
         rb.insert(6);
@@ -361,7 +368,7 @@ mod tests {
 
     #[test]
     fn test_basic_rotation() {
-        let mut rb: RedBlack<i32> = RedBlack::new();
+        let mut rb: SlabRedBlack<i32> = SlabRedBlack::new();
 
         rb.insert(5); // x
         rb.insert(1); // alpha
@@ -455,7 +462,7 @@ mod tests {
     #[test]
     fn test_many_insert() {
         let mut num = 1u32;
-        let mut rb: RedBlack<u32> = RedBlack::new();
+        let mut rb: SlabRedBlack<u32> = SlabRedBlack::new();
 
         for _ in 0..1000000 {
             num = num.wrapping_mul(17).wrapping_add(255);
@@ -467,7 +474,7 @@ mod tests {
 
     #[test]
     fn test_many_insert_some_delete() {
-        let mut rb: RedBlack<i32> = RedBlack::new();
+        let mut rb: SlabRedBlack<i32> = SlabRedBlack::new();
 
         for i in 500000..1000000 {
             rb.insert(i);
