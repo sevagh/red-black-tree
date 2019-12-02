@@ -1,7 +1,6 @@
 const NULL: usize = !0;
 
 use slab::Slab;
-use std::collections::VecDeque;
 
 #[derive(Debug)]
 struct Node<T> {
@@ -16,20 +15,23 @@ impl<T> Node<T> {
         Node {
             parent: nil_sentinel,
             children: [nil_sentinel, nil_sentinel],
-            key: key,
+            key,
             red: false,
         }
     }
 }
 
+#[derive(Default)]
 pub struct RedBlack<T> {
     slab: Slab<Node<T>>,
     root: usize,
     nil_sentinel: usize,
 }
 
-impl<T> RedBlack<T> where
-T: std::default::Default + std::cmp::PartialOrd + std::fmt::Debug + Copy {
+impl<T> RedBlack<T>
+where
+    T: std::default::Default + std::cmp::PartialOrd + std::fmt::Debug + Copy,
+{
     pub fn new() -> RedBlack<T> {
         let mut rb = RedBlack {
             slab: Slab::new(),
@@ -43,8 +45,8 @@ T: std::default::Default + std::cmp::PartialOrd + std::fmt::Debug + Copy {
     }
 
     fn rotate(&mut self, x: usize, dir: usize) {
-        let y = self.slab[x].children[dir^1];
-        self.slab[x].children[dir^1] = self.slab[y].children[dir];
+        let y = self.slab[x].children[dir ^ 1];
+        self.slab[x].children[dir ^ 1] = self.slab[y].children[dir];
         let y_chld = self.slab[y].children[dir];
         if y_chld != self.nil_sentinel {
             self.slab[y_chld].parent = x;
@@ -54,7 +56,11 @@ T: std::default::Default + std::cmp::PartialOrd + std::fmt::Debug + Copy {
         if x_parent == self.nil_sentinel {
             self.root = y;
         } else {
-            let sib_dir = if self.slab[x_parent].children[0] == x { 0 } else { 1 };
+            let sib_dir = if self.slab[x_parent].children[0] == x {
+                0
+            } else {
+                1
+            };
             self.slab[x_parent].children[sib_dir] = y;
         }
         self.slab[y].children[dir] = x;
@@ -69,7 +75,11 @@ T: std::default::Default + std::cmp::PartialOrd + std::fmt::Debug + Copy {
 
         while x != self.nil_sentinel {
             y = x;
-            let dir = if self.slab[z].key < self.slab[x].key { 0 } else { 1 };
+            let dir = if self.slab[z].key < self.slab[x].key {
+                0
+            } else {
+                1
+            };
             x = self.slab[x].children[dir];
         }
 
@@ -77,7 +87,11 @@ T: std::default::Default + std::cmp::PartialOrd + std::fmt::Debug + Copy {
         if y == self.nil_sentinel {
             self.root = z;
         } else {
-            let dir = if self.slab[z].key < self.slab[y].key { 0 } else { 1 };
+            let dir = if self.slab[z].key < self.slab[y].key {
+                0
+            } else {
+                1
+            };
             self.slab[y].children[dir] = z;
         }
 
@@ -86,16 +100,16 @@ T: std::default::Default + std::cmp::PartialOrd + std::fmt::Debug + Copy {
         self.insert_fixup(z);
     }
 
-    fn tree_minimum(&mut self, mut x: usize) {
+    fn tree_minimum(&mut self, mut x: usize) -> usize {
         let mut l = self.slab[x].children[0];
         while l != self.nil_sentinel {
             x = l;
             l = self.slab[x].children[0];
         }
-        return x;
+        x
     }
 
-    fn tree_successor(&mut self, mut x: usize) {
+    fn tree_successor(&mut self, mut x: usize) -> usize {
         if self.slab[x].children[1] != self.nil_sentinel {
             return self.tree_minimum(x);
         }
@@ -104,51 +118,56 @@ T: std::default::Default + std::cmp::PartialOrd + std::fmt::Debug + Copy {
             x = y;
             y = self.slab[y].parent;
         }
-        return y;
+        y
     }
 
     pub fn delete(&mut self, key: T) -> Option<T> {
-        let mut z: usize;
+        let z = match self.search_(key) {
+            Some(found_idx) => found_idx,
+            None => {
+                return None;
+            }
+        };
 
-        // nothing to delete
-        if let Some(found_idx) = self.search_(key) {
-            z = found_idx;
+        let y = if self.slab[z].children[0] == self.nil_sentinel
+            || self.slab[z].children[1] == self.nil_sentinel
+        {
+            z
         } else {
-            return None;
-        }
+            self.tree_successor(z)
+        };
 
-        let mut x: usize;
-        let mut y: usize;
-
-        if self.slab[z].children[0] == self.nil_sentinel || self.slab[z].children[1] == self.nil_sentinel {
-            y = z;
+        let dir = if self.slab[y].children[0] != self.nil_sentinel {
+            0
         } else {
-            y = self.tree_successor(z);
-        }
-
-        let dir = if self.slab[y].children[0] != self.nil_sentinel { 0 } else { 1 };
-        x = self.slab[y].children[dir];
+            1
+        };
+        let x = self.slab[y].children[dir];
 
         let yp = self.slab[y].parent;
 
         self.slab[x].parent = yp;
 
-        if yp = self.nil_sentinel {
+        if yp == self.nil_sentinel {
             self.root = x;
         } else {
-            let p = self.
             let dir = if y == self.slab[yp].children[0] { 0 } else { 1 };
             self.slab[yp].children[dir] = x;
         }
 
         if y != z {
-            self.slab[y].key = self.slab[z].key;
+            self.slab[z].key = self.slab[y].key;
         }
         if !self.slab[y].red {
             self.delete_fixup(x);
         }
-        self.slab.remove(z);
-        return if y != self.nil_sentinel { Some(self.slab[y].key) } else { None };
+
+        let mut ret: Option<T> = None;
+        if y != self.nil_sentinel {
+            ret = Some(self.slab[y].key);
+            self.slab.remove(y); // remove the spliced-out node from the slab
+        }
+        ret
     }
 
     fn insert_fixup(&mut self, mut z: usize) {
@@ -171,11 +190,12 @@ T: std::default::Default + std::cmp::PartialOrd + std::fmt::Debug + Copy {
 
                 // recompute parent and grandparent after changing z
                 p = self.slab[z].parent;
-            } else { // y is black, or nil sentinel
+            } else {
+                // y is black, or nil sentinel
                 if z == self.slab[p].children[dir] {
                     z = p;
 
-                    self.rotate(z, dir^1);
+                    self.rotate(z, dir ^ 1);
 
                     // recompute parent and grandparent after rotation
                     p = self.slab[z].parent;
@@ -192,7 +212,42 @@ T: std::default::Default + std::cmp::PartialOrd + std::fmt::Debug + Copy {
     }
 
     fn delete_fixup(&mut self, mut x: usize) {
+        let mut p: usize;
         while x != self.root && !self.slab[x].red {
+            p = self.slab[x].parent;
+            let dir = if x == self.slab[p].children[0] { 1 } else { 0 };
+            let mut w = self.slab[p].children[dir];
+            if self.slab[w].red {
+                self.slab[w].red = false;
+                self.slab[p].red = true;
+                self.rotate(p, dir ^ 1);
+
+                // recompute w after the rotation of p
+                w = self.slab[p].children[dir];
+            }
+            let wl = self.slab[w].children[0];
+            let wr = self.slab[w].children[1];
+            if !self.slab[wl].red && !self.slab[wr].red {
+                self.slab[w].red = true;
+                x = p;
+            } else {
+                let mut wc = self.slab[w].children[dir]; // w child i care about
+                let wo = self.slab[w].children[dir ^ 1]; // w other child
+                if !self.slab[wc].red {
+                    self.slab[wo].red = false;
+                    self.slab[w].red = true;
+                    self.rotate(w, dir);
+                    w = self.slab[p].children[dir];
+
+                    // recompute wc after the rotation of w
+                    wc = self.slab[w].children[dir];
+                }
+                self.slab[w].red = self.slab[p].red;
+                self.slab[p].red = false;
+                self.slab[wc].red = false;
+                self.rotate(p, dir ^ 1);
+                x = self.root
+            }
         }
 
         // blacken x
@@ -204,12 +259,12 @@ T: std::default::Default + std::cmp::PartialOrd + std::fmt::Debug + Copy {
 
         while curr != self.nil_sentinel {
             if self.slab[curr].key == key {
-                return curr;
+                return Some(curr);
             }
             let direction = if self.slab[curr].key < key { 1 } else { 0 };
             curr = self.slab[curr].children[direction];
         }
-        return None;
+        None
     }
 
     pub fn search(&mut self, key: T) -> Option<T> {
@@ -219,62 +274,69 @@ T: std::default::Default + std::cmp::PartialOrd + std::fmt::Debug + Copy {
         None
     }
 
-    fn verify_black_height(&self, x: usize) -> i32 {
-        if x == self.nil_sentinel {
-            return 0;
-        }
-        let left_height = self.verify_black_height(self.slab[x].children[0]);
-        let right_height = self.verify_black_height(self.slab[x].children[1]);
-
-        assert!(left_height != -1 && right_height != -1 && left_height == right_height, "red-black properties have been violated!");
-
-        let add = if self.slab[x].red { 0 } else { 1 };
-        return left_height + add;
-    }
-
-    fn verify_children_color(&self) -> bool {
-        if self.root == self.nil_sentinel {
-            return true;
-        }
-        let mut queue: VecDeque<usize> = VecDeque::new();
-        queue.push_front(self.root);
-
-        while !queue.is_empty() {
-            let curr = queue.pop_front().unwrap();
-            if curr == self.nil_sentinel {
-                break;
-            }
-
-            let l = self.slab[curr].children[0];
-            let r = self.slab[curr].children[1];
-
-            // red node must not have red children
-            if self.slab[curr].red {
-                assert!(!self.slab[l].red && !self.slab[r].red, "red node has red children");
-            }
-
-            if l != self.nil_sentinel {
-                queue.push_back(l);
-            }
-            if r != self.nil_sentinel {
-                queue.push_back(r);
-            }
-        }
-
-        return true;
-    }
-
-    /*
-     * properties
-     * - root property: root is black
-     * - leaf nodes (NULL) are black (pointless here given my sentinel is a NULL, not a real node)
-     * - red property: children of a red node are black
-     * - simple path from node to descendant leaf contains same number of black nodes
-     */
+    #[cfg(test)]
     fn is_valid(&self) {
+        /*
+         * properties
+         * - root property: root is black
+         * - leaf nodes (NULL) are black (pointless here given my sentinel is a NULL, not a real node)
+         * - red property: children of a red node are black
+         * - simple path from node to descendant leaf contains same number of black nodes
+         */
+        fn verify_black_height<T>(rb: &RedBlack<T>, x: usize) -> i32 {
+            if x == rb.nil_sentinel {
+                return 0;
+            }
+            let left_height = verify_black_height(rb, rb.slab[x].children[0]);
+            let right_height = verify_black_height(rb, rb.slab[x].children[1]);
+
+            assert!(
+                left_height != -1 && right_height != -1 && left_height == right_height,
+                "red-black properties have been violated!"
+            );
+
+            let add = if rb.slab[x].red { 0 } else { 1 };
+            left_height + add
+        }
+
+        fn verify_children_color<T>(rb: &RedBlack<T>) -> bool {
+            if rb.root == rb.nil_sentinel {
+                return true;
+            }
+            let mut queue: VecDeque<usize> = VecDeque::new();
+            queue.push_front(rb.root);
+
+            while !queue.is_empty() {
+                let curr = queue.pop_front().unwrap();
+                if curr == rb.nil_sentinel {
+                    break;
+                }
+
+                let l = rb.slab[curr].children[0];
+                let r = rb.slab[curr].children[1];
+
+                // red node must not have red children
+                if rb.slab[curr].red {
+                    assert!(
+                        !rb.slab[l].red && !rb.slab[r].red,
+                        "red node has red children"
+                    );
+                }
+
+                if l != rb.nil_sentinel {
+                    queue.push_back(l);
+                }
+                if r != rb.nil_sentinel {
+                    queue.push_back(r);
+                }
+            }
+
+            true
+        }
+
         assert!(!self.slab[self.root].red); // root is black
-        self.verify_children_color();
-        self.verify_black_height(self.root);
+        verify_children_color(self);
+        verify_black_height(self, self.root);
     }
 }
 
@@ -326,7 +388,7 @@ mod tests {
         assert_eq!(rb.slab[2].children[1], rb.nil_sentinel);
 
         assert_eq!(rb.slab[3].key, 8);
-        assert_eq!(rb.slab[3].parent, 1); 
+        assert_eq!(rb.slab[3].parent, 1);
         assert_eq!(rb.slab[3].children[0], 4); // y's left points to 4 in the slab i.e. beta
         assert_eq!(rb.slab[3].children[1], 5); // y's right points to 5 in the slab i.e. gamma
 
@@ -376,7 +438,7 @@ mod tests {
         assert_eq!(rb.slab[2].children[1], rb.nil_sentinel);
 
         assert_eq!(rb.slab[3].key, 8);
-        assert_eq!(rb.slab[3].parent, 1); 
+        assert_eq!(rb.slab[3].parent, 1);
         assert_eq!(rb.slab[3].children[0], 4); // y's left points to 4 in the slab i.e. beta
         assert_eq!(rb.slab[3].children[1], 5); // y's right points to 5 in the slab i.e. gamma
 
@@ -401,5 +463,54 @@ mod tests {
         }
 
         rb.is_valid(); // will panic if it must
+    }
+
+    #[test]
+    fn test_many_insert_some_delete() {
+        let mut rb: RedBlack<i32> = RedBlack::new();
+
+        for i in 500000..1000000 {
+            rb.insert(i);
+            rb.insert(1000000 - i);
+        }
+
+        assert_eq!(rb.search(5), Some(5));
+        assert_eq!(rb.search(50), Some(50));
+        assert_eq!(rb.search(500), Some(500));
+        assert_eq!(rb.search(5000), Some(5000));
+        assert_eq!(rb.search(50000), Some(50000));
+        assert_eq!(rb.search(500000), Some(500000));
+
+        rb.is_valid(); // will panic if it must
+
+        assert!(rb.delete(5).is_some()); // the spliced-out node doesn't necessarily have to be the deleted one
+        rb.is_valid(); // will panic if it must
+        assert_eq!(rb.delete(5), None);
+        assert_eq!(rb.search(5), None);
+
+        assert!(rb.delete(50).is_some());
+        rb.is_valid(); // will panic if it must
+        assert_eq!(rb.delete(50), None);
+        assert_eq!(rb.search(50), None);
+
+        assert!(rb.delete(500).is_some());
+        rb.is_valid(); // will panic if it must
+        assert_eq!(rb.delete(500), None);
+        assert_eq!(rb.search(500), None);
+
+        assert!(rb.delete(5000).is_some());
+        rb.is_valid(); // will panic if it must
+        assert_eq!(rb.delete(5000), None);
+        assert_eq!(rb.search(5000), None);
+
+        assert!(rb.delete(50000).is_some());
+        rb.is_valid(); // will panic if it must
+        assert_eq!(rb.delete(50000), None);
+        assert_eq!(rb.search(50000), None);
+
+        assert!(rb.delete(500000).is_some());
+        rb.is_valid(); // will panic if it must
+        assert_eq!(rb.delete(500000), None);
+        assert_eq!(rb.search(500000), None);
     }
 }
