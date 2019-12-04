@@ -2,6 +2,7 @@ const NULL: usize = !0;
 
 use crate::redblack::RedBlack;
 use slab::Slab;
+use std::mem;
 
 #[cfg(test)]
 use std::collections::VecDeque;
@@ -25,7 +26,6 @@ impl<T> Node<T> {
     }
 }
 
-#[derive(Default)]
 pub struct SlabRedBlack<T> {
     slab: Slab<Node<T>>,
     root: usize,
@@ -34,7 +34,7 @@ pub struct SlabRedBlack<T> {
 
 impl<T> SlabRedBlack<T>
 where
-    T: std::default::Default + std::cmp::PartialOrd + std::fmt::Debug + Copy,
+    T: std::cmp::PartialOrd + std::fmt::Debug + Copy,
 {
     fn rotate(&mut self, x: usize, dir: usize) {
         let y = self.slab[x].children[dir ^ 1];
@@ -245,7 +245,7 @@ where
 
 impl<T> RedBlack<T> for SlabRedBlack<T>
 where
-    T: std::default::Default + std::cmp::PartialOrd + std::fmt::Debug + Copy,
+    T: std::cmp::PartialOrd + std::fmt::Debug + Copy,
 {
     fn new() -> SlabRedBlack<T> {
         let mut rb = SlabRedBlack {
@@ -253,9 +253,14 @@ where
             root: NULL,
             nil_sentinel: NULL,
         };
-        let nil_sentinel = rb.slab.insert(Node::new(T::default(), NULL));
-        rb.nil_sentinel = nil_sentinel;
-        rb.root = nil_sentinel;
+        unsafe {
+            let nil_sentinel = rb.slab.insert(Node::new(
+                mem::MaybeUninit::<T>::uninit().assume_init(),
+                NULL,
+            ));
+            rb.nil_sentinel = nil_sentinel;
+            rb.root = nil_sentinel;
+        }
         rb
     }
 

@@ -1,5 +1,5 @@
 use crate::redblack::RedBlack;
-use std::ptr;
+use std::{mem, ptr};
 
 #[cfg(test)]
 use std::collections::VecDeque;
@@ -11,19 +11,13 @@ struct Node<T> {
     red: bool,
 }
 
-fn new_node_ptr<T>(key: T, nil_sentinel: *mut Node<T>) -> *mut Node<T>
-where
-    T: std::default::Default,
-{
+fn new_node_ptr<T>(key: T, nil_sentinel: *mut Node<T>) -> *mut Node<T> {
     // use Box to allocate nodes on the heap
     let node = Node::new(key, nil_sentinel);
     Box::into_raw(Box::new(node))
 }
 
-impl<T> Node<T>
-where
-    T: std::default::Default,
-{
+impl<T> Node<T> {
     fn new(key: T, nil_sentinel: *mut Node<T>) -> Node<T> {
         Node {
             parent: nil_sentinel,
@@ -33,8 +27,11 @@ where
         }
     }
 
-    fn nil_sentinel() -> *mut Node<T> {
-        new_node_ptr(T::default(), ptr::null_mut())
+    unsafe fn nil_sentinel() -> *mut Node<T> {
+        new_node_ptr(
+            mem::MaybeUninit::<T>::uninit().assume_init(),
+            ptr::null_mut(),
+        )
     }
 }
 
@@ -243,12 +240,17 @@ where
     T: std::default::Default + std::cmp::PartialOrd + std::fmt::Debug + Copy,
 {
     fn new() -> PointerRedBlack<T> {
-        let nil_sentinel = Node::nil_sentinel();
+        let mut rb = PointerRedBlack {
+            root: ptr::null_mut(),
+            nil_sentinel: ptr::null_mut(),
+        };
 
-        PointerRedBlack {
-            root: nil_sentinel,
-            nil_sentinel,
+        unsafe {
+            let nil_sentinel = Node::nil_sentinel();
+            rb.nil_sentinel = nil_sentinel;
+            rb.root = nil_sentinel;
         }
+        rb
     }
 
     fn search(&mut self, key: T) -> Option<T> {
