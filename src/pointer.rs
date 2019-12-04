@@ -42,7 +42,7 @@ pub struct PointerRedBlack<T> {
 
 impl<T> PointerRedBlack<T>
 where
-    T: std::default::Default + std::cmp::PartialOrd + std::fmt::Debug + Copy,
+    T: std::cmp::PartialOrd,
 {
     unsafe fn rotate(&mut self, x: *mut Node<T>, dir: usize) {
         let y = (*x).children[dir ^ 1];
@@ -237,7 +237,7 @@ where
 
 impl<T> RedBlack<T> for PointerRedBlack<T>
 where
-    T: std::default::Default + std::cmp::PartialOrd + std::fmt::Debug + Copy,
+    T: std::cmp::PartialOrd,
 {
     fn new() -> PointerRedBlack<T> {
         let mut rb = PointerRedBlack {
@@ -253,21 +253,21 @@ where
         rb
     }
 
-    fn search(&mut self, key: T) -> Option<T> {
+    fn search(&mut self, key: T) -> Option<&T> {
         unsafe {
             if let Some(found_node) = self.search_(key) {
-                return Some((*found_node).key);
+                return Some(&(*found_node).key);
             }
             None
         }
     }
 
-    fn delete(&mut self, key: T) -> Option<T> {
+    fn delete(&mut self, key: T) {
         unsafe {
             let z = match self.search_(key) {
                 Some(found_node) => found_node,
                 None => {
-                    return None;
+                    return;
                 }
             };
 
@@ -297,17 +297,11 @@ where
             }
 
             if y != z {
-                (*z).key = (*y).key;
+                mem::swap(&mut (*z).key, &mut (*y).key);
             }
             if !(*y).red {
                 self.delete_fixup(x);
             }
-
-            let mut ret: Option<T> = None;
-            if y != self.nil_sentinel {
-                ret = Some((*y).key);
-            }
-            ret
         }
     }
 
@@ -350,9 +344,9 @@ mod tests {
         rb.insert(6);
         rb.insert(7);
 
-        assert_eq!(rb.search(5), Some(5));
-        assert_eq!(rb.search(6), Some(6));
-        assert_eq!(rb.search(7), Some(7));
+        assert_eq!(rb.search(5), Some(&5));
+        assert_eq!(rb.search(6), Some(&6));
+        assert_eq!(rb.search(7), Some(&7));
 
         unsafe {
             rb.is_valid(); // will panic if it must
@@ -383,57 +377,57 @@ mod tests {
             rb.insert(1000000 - i);
         }
 
-        assert_eq!(rb.search(5), Some(5));
-        assert_eq!(rb.search(50), Some(50));
-        assert_eq!(rb.search(500), Some(500));
-        assert_eq!(rb.search(5000), Some(5000));
-        assert_eq!(rb.search(50000), Some(50000));
-        assert_eq!(rb.search(500000), Some(500000));
+        assert_eq!(rb.search(5), Some(&5));
+        assert_eq!(rb.search(50), Some(&50));
+        assert_eq!(rb.search(500), Some(&500));
+        assert_eq!(rb.search(5000), Some(&5000));
+        assert_eq!(rb.search(50000), Some(&50000));
+        assert_eq!(rb.search(500000), Some(&500000));
 
         unsafe {
             rb.is_valid(); // will panic if it must
         }
 
-        assert!(rb.delete(5).is_some()); // the spliced-out node doesn't necessarily have to be the deleted one
+        rb.delete(5); // the spliced-out node doesn't necessarily have to be the deleted one
         unsafe {
             rb.is_valid(); // will panic if it must
         }
-        assert_eq!(rb.delete(5), None);
+        rb.delete(5);
         assert_eq!(rb.search(5), None);
 
-        assert!(rb.delete(50).is_some());
+        rb.delete(50);
         unsafe {
             rb.is_valid(); // will panic if it must
         }
-        assert_eq!(rb.delete(50), None);
+        rb.delete(50);
         assert_eq!(rb.search(50), None);
 
-        assert!(rb.delete(500).is_some());
+        rb.delete(500);
         unsafe {
             rb.is_valid(); // will panic if it must
         }
-        assert_eq!(rb.delete(500), None);
+        rb.delete(500);
         assert_eq!(rb.search(500), None);
 
-        assert!(rb.delete(5000).is_some());
+        rb.delete(5000);
         unsafe {
             rb.is_valid(); // will panic if it must
         }
-        assert_eq!(rb.delete(5000), None);
+        rb.delete(5000);
         assert_eq!(rb.search(5000), None);
 
-        assert!(rb.delete(50000).is_some());
+        rb.delete(50000);
         unsafe {
             rb.is_valid(); // will panic if it must
         }
-        assert_eq!(rb.delete(50000), None);
+        rb.delete(50000);
         assert_eq!(rb.search(50000), None);
 
-        assert!(rb.delete(500000).is_some());
+        rb.delete(500000);
         unsafe {
             rb.is_valid(); // will panic if it must
         }
-        assert_eq!(rb.delete(500000), None);
+        rb.delete(500000);
         assert_eq!(rb.search(500000), None);
     }
 }

@@ -7,7 +7,6 @@ use std::mem;
 #[cfg(test)]
 use std::collections::VecDeque;
 
-#[derive(Debug)]
 struct Node<T> {
     parent: usize,
     children: [usize; 2],
@@ -34,7 +33,7 @@ pub struct SlabRedBlack<T> {
 
 impl<T> SlabRedBlack<T>
 where
-    T: std::cmp::PartialOrd + std::fmt::Debug + Copy,
+    T: std::cmp::PartialOrd,
 {
     fn rotate(&mut self, x: usize, dir: usize) {
         let y = self.slab[x].children[dir ^ 1];
@@ -245,7 +244,7 @@ where
 
 impl<T> RedBlack<T> for SlabRedBlack<T>
 where
-    T: std::cmp::PartialOrd + std::fmt::Debug + Copy,
+    T: std::cmp::PartialOrd,
 {
     fn new() -> SlabRedBlack<T> {
         let mut rb = SlabRedBlack {
@@ -264,18 +263,18 @@ where
         rb
     }
 
-    fn search(&mut self, key: T) -> Option<T> {
+    fn search(&mut self, key: T) -> Option<&T> {
         if let Some(found_idx) = self.search_(key) {
-            return Some(self.slab[found_idx].key);
+            return Some(&self.slab[found_idx].key);
         }
         None
     }
 
-    fn delete(&mut self, key: T) -> Option<T> {
+    fn delete(&mut self, key: T) {
         let z = match self.search_(key) {
             Some(found_idx) => found_idx,
             None => {
-                return None;
+                return;
             }
         };
 
@@ -305,19 +304,18 @@ where
             self.slab[yp].children[dir] = x;
         }
 
-        if y != z {
-            self.slab[z].key = self.slab[y].key;
-        }
         if !self.slab[y].red {
             self.delete_fixup(x);
         }
 
-        let mut ret: Option<T> = None;
-        if y != self.nil_sentinel {
-            ret = Some(self.slab[y].key);
-            self.slab.remove(y); // remove the spliced-out node from the slab
+        if y == self.nil_sentinel {
+            return;
         }
-        ret
+
+        let mut y_removed = self.slab.remove(y); // remove the spliced-out node from the slab
+        if y != z {
+            mem::swap(&mut self.slab[z].key, &mut y_removed.key);
+        }
     }
 
     fn insert(&mut self, key: T) {
@@ -366,9 +364,9 @@ mod tests {
         rb.insert(6);
         rb.insert(7);
 
-        assert_eq!(rb.search(5), Some(5));
-        assert_eq!(rb.search(6), Some(6));
-        assert_eq!(rb.search(7), Some(7));
+        assert_eq!(rb.search(5), Some(&5));
+        assert_eq!(rb.search(6), Some(&6));
+        assert_eq!(rb.search(7), Some(&7));
 
         rb.is_valid(); // will panic if it must
     }
@@ -488,43 +486,43 @@ mod tests {
             rb.insert(1000000 - i);
         }
 
-        assert_eq!(rb.search(5), Some(5));
-        assert_eq!(rb.search(50), Some(50));
-        assert_eq!(rb.search(500), Some(500));
-        assert_eq!(rb.search(5000), Some(5000));
-        assert_eq!(rb.search(50000), Some(50000));
-        assert_eq!(rb.search(500000), Some(500000));
+        assert_eq!(rb.search(5), Some(&5));
+        assert_eq!(rb.search(50), Some(&50));
+        assert_eq!(rb.search(500), Some(&500));
+        assert_eq!(rb.search(5000), Some(&5000));
+        assert_eq!(rb.search(50000), Some(&50000));
+        assert_eq!(rb.search(500000), Some(&500000));
 
         rb.is_valid(); // will panic if it must
 
-        assert!(rb.delete(5).is_some()); // the spliced-out node doesn't necessarily have to be the deleted one
+        rb.delete(5);
         rb.is_valid(); // will panic if it must
-        assert_eq!(rb.delete(5), None);
+        rb.delete(5);
         assert_eq!(rb.search(5), None);
 
-        assert!(rb.delete(50).is_some());
+        rb.delete(50);
         rb.is_valid(); // will panic if it must
-        assert_eq!(rb.delete(50), None);
+        rb.delete(50);
         assert_eq!(rb.search(50), None);
 
-        assert!(rb.delete(500).is_some());
+        rb.delete(500);
         rb.is_valid(); // will panic if it must
-        assert_eq!(rb.delete(500), None);
+        rb.delete(500);
         assert_eq!(rb.search(500), None);
 
-        assert!(rb.delete(5000).is_some());
+        rb.delete(5000);
         rb.is_valid(); // will panic if it must
-        assert_eq!(rb.delete(5000), None);
+        rb.delete(5000);
         assert_eq!(rb.search(5000), None);
 
-        assert!(rb.delete(50000).is_some());
+        rb.delete(50000);
         rb.is_valid(); // will panic if it must
-        assert_eq!(rb.delete(50000), None);
+        rb.delete(50000);
         assert_eq!(rb.search(50000), None);
 
-        assert!(rb.delete(500000).is_some());
+        rb.delete(500000);
         rb.is_valid(); // will panic if it must
-        assert_eq!(rb.delete(500000), None);
+        rb.delete(500000);
         assert_eq!(rb.search(500000), None);
     }
 }
