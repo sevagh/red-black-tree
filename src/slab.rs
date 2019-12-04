@@ -2,6 +2,8 @@ const NULL: usize = !0;
 
 use crate::redblack::RedBlack;
 use slab::Slab;
+
+#[cfg(test)]
 use std::collections::VecDeque;
 
 #[derive(Debug)]
