@@ -160,14 +160,14 @@ where
         (*x).red = false;
     }
 
-    unsafe fn search_(&mut self, key: T) -> Option<*mut Node<T>> {
+    unsafe fn search_(&mut self, key: &T) -> Option<*mut Node<T>> {
         let mut curr = self.root;
 
         while curr != self.nil_sentinel {
-            if (*curr).key == key {
+            if (*curr).key == *key {
                 return Some(curr);
             }
-            let direction = if (*curr).key < key { 1 } else { 0 };
+            let direction = if (*curr).key < *key { 1 } else { 0 };
             curr = (*curr).children[direction];
         }
         None
@@ -253,7 +253,7 @@ where
         rb
     }
 
-    fn search(&mut self, key: T) -> Option<&T> {
+    fn search(&mut self, key: &T) -> Option<&T> {
         unsafe {
             if let Some(found_node) = self.search_(key) {
                 return Some(&(*found_node).key);
@@ -262,7 +262,7 @@ where
         }
     }
 
-    fn delete(&mut self, key: T) {
+    fn delete(&mut self, key: &T) {
         unsafe {
             let z = match self.search_(key) {
                 Some(found_node) => found_node,
@@ -344,9 +344,9 @@ mod tests {
         rb.insert(6);
         rb.insert(7);
 
-        assert_eq!(rb.search(5), Some(&5));
-        assert_eq!(rb.search(6), Some(&6));
-        assert_eq!(rb.search(7), Some(&7));
+        assert_eq!(rb.search(&5), Some(&5));
+        assert_eq!(rb.search(&6), Some(&6));
+        assert_eq!(rb.search(&7), Some(&7));
 
         unsafe {
             rb.is_valid(); // will panic if it must
@@ -377,57 +377,57 @@ mod tests {
             rb.insert(1000000 - i);
         }
 
-        assert_eq!(rb.search(5), Some(&5));
-        assert_eq!(rb.search(50), Some(&50));
-        assert_eq!(rb.search(500), Some(&500));
-        assert_eq!(rb.search(5000), Some(&5000));
-        assert_eq!(rb.search(50000), Some(&50000));
-        assert_eq!(rb.search(500000), Some(&500000));
+        assert_eq!(rb.search(&5), Some(&5));
+        assert_eq!(rb.search(&50), Some(&50));
+        assert_eq!(rb.search(&500), Some(&500));
+        assert_eq!(rb.search(&5000), Some(&5000));
+        assert_eq!(rb.search(&50000), Some(&50000));
+        assert_eq!(rb.search(&500000), Some(&500000));
 
         unsafe {
             rb.is_valid(); // will panic if it must
         }
 
-        rb.delete(5); // the spliced-out node doesn't necessarily have to be the deleted one
+        rb.delete(&5); // the spliced-out node doesn't necessarily have to be the deleted one
         unsafe {
             rb.is_valid(); // will panic if it must
         }
-        rb.delete(5);
-        assert_eq!(rb.search(5), None);
+        rb.delete(&5);
+        assert_eq!(rb.search(&5), None);
 
-        rb.delete(50);
+        rb.delete(&50);
         unsafe {
             rb.is_valid(); // will panic if it must
         }
-        rb.delete(50);
-        assert_eq!(rb.search(50), None);
+        rb.delete(&50);
+        assert_eq!(rb.search(&50), None);
 
-        rb.delete(500);
+        rb.delete(&500);
         unsafe {
             rb.is_valid(); // will panic if it must
         }
-        rb.delete(500);
-        assert_eq!(rb.search(500), None);
+        rb.delete(&500);
+        assert_eq!(rb.search(&500), None);
 
-        rb.delete(5000);
+        rb.delete(&5000);
         unsafe {
             rb.is_valid(); // will panic if it must
         }
-        rb.delete(5000);
-        assert_eq!(rb.search(5000), None);
+        rb.delete(&5000);
+        assert_eq!(rb.search(&5000), None);
 
-        rb.delete(50000);
+        rb.delete(&50000);
         unsafe {
             rb.is_valid(); // will panic if it must
         }
-        rb.delete(50000);
-        assert_eq!(rb.search(50000), None);
+        rb.delete(&50000);
+        assert_eq!(rb.search(&50000), None);
 
-        rb.delete(500000);
+        rb.delete(&500000);
         unsafe {
             rb.is_valid(); // will panic if it must
         }
-        rb.delete(500000);
-        assert_eq!(rb.search(500000), None);
+        rb.delete(&500000);
+        assert_eq!(rb.search(&500000), None);
     }
 }

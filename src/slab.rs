@@ -163,14 +163,14 @@ where
         self.slab[x].red = false;
     }
 
-    fn search_(&mut self, key: T) -> Option<usize> {
+    fn search_(&mut self, key: &T) -> Option<usize> {
         let mut curr = self.root;
 
         while curr != self.nil_sentinel {
-            if self.slab[curr].key == key {
+            if self.slab[curr].key == *key {
                 return Some(curr);
             }
-            let direction = if self.slab[curr].key < key { 1 } else { 0 };
+            let direction = if self.slab[curr].key < *key { 1 } else { 0 };
             curr = self.slab[curr].children[direction];
         }
         None
@@ -263,14 +263,14 @@ where
         rb
     }
 
-    fn search(&mut self, key: T) -> Option<&T> {
+    fn search(&mut self, key: &T) -> Option<&T> {
         if let Some(found_idx) = self.search_(key) {
             return Some(&self.slab[found_idx].key);
         }
         None
     }
 
-    fn delete(&mut self, key: T) {
+    fn delete(&mut self, key: &T) {
         let z = match self.search_(key) {
             Some(found_idx) => found_idx,
             None => {
@@ -364,9 +364,9 @@ mod tests {
         rb.insert(6);
         rb.insert(7);
 
-        assert_eq!(rb.search(5), Some(&5));
-        assert_eq!(rb.search(6), Some(&6));
-        assert_eq!(rb.search(7), Some(&7));
+        assert_eq!(rb.search(&5), Some(&5));
+        assert_eq!(rb.search(&6), Some(&6));
+        assert_eq!(rb.search(&7), Some(&7));
 
         rb.is_valid(); // will panic if it must
     }
@@ -486,43 +486,43 @@ mod tests {
             rb.insert(1000000 - i);
         }
 
-        assert_eq!(rb.search(5), Some(&5));
-        assert_eq!(rb.search(50), Some(&50));
-        assert_eq!(rb.search(500), Some(&500));
-        assert_eq!(rb.search(5000), Some(&5000));
-        assert_eq!(rb.search(50000), Some(&50000));
-        assert_eq!(rb.search(500000), Some(&500000));
+        assert_eq!(rb.search(&5), Some(&5));
+        assert_eq!(rb.search(&50), Some(&50));
+        assert_eq!(rb.search(&500), Some(&500));
+        assert_eq!(rb.search(&5000), Some(&5000));
+        assert_eq!(rb.search(&50000), Some(&50000));
+        assert_eq!(rb.search(&500000), Some(&500000));
 
         rb.is_valid(); // will panic if it must
 
-        rb.delete(5);
+        rb.delete(&5);
         rb.is_valid(); // will panic if it must
-        rb.delete(5);
-        assert_eq!(rb.search(5), None);
+        rb.delete(&5);
+        assert_eq!(rb.search(&5), None);
 
-        rb.delete(50);
+        rb.delete(&50);
         rb.is_valid(); // will panic if it must
-        rb.delete(50);
-        assert_eq!(rb.search(50), None);
+        rb.delete(&50);
+        assert_eq!(rb.search(&50), None);
 
-        rb.delete(500);
+        rb.delete(&500);
         rb.is_valid(); // will panic if it must
-        rb.delete(500);
-        assert_eq!(rb.search(500), None);
+        rb.delete(&500);
+        assert_eq!(rb.search(&500), None);
 
-        rb.delete(5000);
+        rb.delete(&5000);
         rb.is_valid(); // will panic if it must
-        rb.delete(5000);
-        assert_eq!(rb.search(5000), None);
+        rb.delete(&5000);
+        assert_eq!(rb.search(&5000), None);
 
-        rb.delete(50000);
+        rb.delete(&50000);
         rb.is_valid(); // will panic if it must
-        rb.delete(50000);
-        assert_eq!(rb.search(50000), None);
+        rb.delete(&50000);
+        assert_eq!(rb.search(&50000), None);
 
-        rb.delete(500000);
+        rb.delete(&500000);
         rb.is_valid(); // will panic if it must
-        rb.delete(500000);
-        assert_eq!(rb.search(500000), None);
+        rb.delete(&500000);
+        assert_eq!(rb.search(&500000), None);
     }
 }
